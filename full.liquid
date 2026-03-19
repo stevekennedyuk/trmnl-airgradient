@@ -1,0 +1,374 @@
+{% comment %}
+  AirGradient Air Quality Plugin – Full Layout
+  API returns an array; we use the first element.
+  Fields: pm01, pm02 (PM2.5), pm10, pm003Count, rco2, atmp, rhum,
+          tvoc, tvocIndex, noxIndex, wifi, serialno, timestamp
+{% endcomment %}
+
+{% assign reading = data[0] %}
+
+{% comment %} ── Temperature conversion ── {% endcomment %}
+{% assign raw_temp = reading.atmp %}
+{% if trmnl.plugin_settings.custom_fields_values.temp_unit == "°F" %}
+  {% assign temp_val = raw_temp | times: 1.8 | plus: 32 | round: 1 %}
+  {% assign temp_unit = "°F" %}
+{% else %}
+  {% assign temp_val = raw_temp | round: 1 %}
+  {% assign temp_unit = "°C" %}
+{% endif %}
+
+{% comment %} ── US AQI from PM2.5 (simplified breakpoints) ── {% endcomment %}
+{% assign pm25 = reading.pm02 | plus: 0 %}
+{% if pm25 <= 12.0 %}
+  {% assign aqi_cat = "GOOD" %}
+  {% assign aqi_lo = 0 %} {% assign aqi_hi = 50 %}
+  {% assign pm_lo = 0.0 %} {% assign pm_hi = 12.0 %}
+{% elsif pm25 <= 35.4 %}
+  {% assign aqi_cat = "MODERATE" %}
+  {% assign aqi_lo = 51 %} {% assign aqi_hi = 100 %}
+  {% assign pm_lo = 12.1 %} {% assign pm_hi = 35.4 %}
+{% elsif pm25 <= 55.4 %}
+  {% assign aqi_cat = "UNHEALTHY*" %}
+  {% assign aqi_lo = 101 %} {% assign aqi_hi = 150 %}
+  {% assign pm_lo = 35.5 %} {% assign pm_hi = 55.4 %}
+{% elsif pm25 <= 150.4 %}
+  {% assign aqi_cat = "UNHEALTHY" %}
+  {% assign aqi_lo = 151 %} {% assign aqi_hi = 200 %}
+  {% assign pm_lo = 55.5 %} {% assign pm_hi = 150.4 %}
+{% else %}
+  {% assign aqi_cat = "VERY UNHEALTHY" %}
+  {% assign aqi_lo = 201 %} {% assign aqi_hi = 300 %}
+  {% assign pm_lo = 150.5 %} {% assign pm_hi = 250.4 %}
+{% endif %}
+{% assign pm_range = pm_hi | minus: pm_lo %}
+{% assign pm_offset = pm25 | minus: pm_lo %}
+{% assign aqi_range = aqi_hi | minus: aqi_lo %}
+{% assign aqi_val = pm_offset | times: aqi_range | divided_by: pm_range | plus: aqi_lo | round %}
+
+{% comment %} ── CO2 status label ── {% endcomment %}
+{% assign co2 = reading.rco2 | plus: 0 %}
+{% if co2 < 800 %}{% assign co2_status = "GOOD" %}
+{% elsif co2 < 1200 %}{% assign co2_status = "MODERATE" %}
+{% elsif co2 < 2000 %}{% assign co2_status = "POOR" %}
+{% else %}{% assign co2_status = "BAD" %}{% endif %}
+
+{% comment %} ── Humidity status ── {% endcomment %}
+{% assign rh = reading.rhum | plus: 0 %}
+{% if rh >= 30 and rh <= 60 %}{% assign rh_status = "IDEAL" %}
+{% elsif rh < 20 or rh > 70 %}{% assign rh_status = "POOR" %}
+{% else %}{% assign rh_status = "OK" %}{% endif %}
+
+{% comment %} ── TVOC index status ── {% endcomment %}
+{% assign tvoc_idx = reading.tvocIndex | plus: 0 %}
+{% if tvoc_idx <= 150 %}{% assign tvoc_status = "GOOD" %}
+{% elsif tvoc_idx <= 250 %}{% assign tvoc_status = "MODERATE" %}
+{% else %}{% assign tvoc_status = "POOR" %}{% endif %}
+
+{% comment %} ── NOx index status ── {% endcomment %}
+{% assign nox_idx = reading.noxIndex | plus: 0 %}
+{% if nox_idx <= 20 %}{% assign nox_status = "GOOD" %}
+{% elsif nox_idx <= 50 %}{% assign nox_status = "MODERATE" %}
+{% else %}{% assign nox_status = "POOR" %}{% endif %}
+
+{% comment %} ── Label from settings ── {% endcomment %}
+{% assign loc_label = trmnl.plugin_settings.custom_fields_values.location_name %}
+{% if loc_label == blank %}{% assign loc_label = "Air Quality" %}{% endif %}
+
+<style>
+  /* ── Reset & base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  .ag-wrap {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    font-family: "Courier New", Courier, monospace;
+    background: #fff;
+    color: #000;
+  }
+
+  /* ── AQI hero banner ── */
+  .ag-hero {
+    display: flex;
+    align-items: stretch;
+    background: #000;
+    color: #fff;
+    padding: 10px 16px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .ag-hero-aqi {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .ag-hero-aqi .eyebrow {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: .65;
+  }
+  .ag-hero-aqi .big-num {
+    font-size: 52px;
+    font-weight: bold;
+    line-height: 1;
+  }
+  .ag-cat-badge {
+    align-self: center;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 1.5px;
+    border: 2px solid #fff;
+    padding: 4px 10px;
+    text-transform: uppercase;
+  }
+  .ag-hero-spacer { flex: 1; }
+  .ag-hero-pm {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: right;
+    gap: 4px;
+  }
+  .ag-hero-pm .pm-item { font-size: 12px; opacity: .8; }
+  .ag-hero-pm .pm-item strong { opacity: 1; font-size: 14px; }
+
+  /* ── Main metrics grid: 4 cols × 2 rows ── */
+  .ag-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    flex: 1;
+    border-top: 2px solid #000;
+  }
+  .ag-cell {
+    padding: 8px 12px;
+    border-right: 1px solid #ccc;
+    border-bottom: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+  }
+  .ag-cell:nth-child(4n)   { border-right: none; }
+  .ag-cell:nth-child(n+5)  { border-bottom: none; }
+
+  .ag-cell-label {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    opacity: .55;
+    margin-bottom: 2px;
+  }
+  .ag-cell-value {
+    font-size: 32px;
+    font-weight: bold;
+    line-height: 1;
+  }
+  .ag-cell-unit {
+    font-size: 9px;
+    opacity: .45;
+    margin-top: 1px;
+  }
+  .ag-cell-status {
+    position: absolute;
+    top: 7px; right: 8px;
+    font-size: 7px;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    padding: 1px 4px;
+    border: 1px solid #999;
+    color: #555;
+  }
+  .ag-cell-status.bad {
+    background: #000;
+    color: #fff;
+    border-color: #000;
+  }
+  .ag-cell-status.poor {
+    background: #ddd;
+    color: #000;
+    border-color: #999;
+  }
+
+  /* ── Mini bar ── */
+  .ag-bar {
+    width: 100%;
+    height: 3px;
+    background: #eee;
+    margin-top: 4px;
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .ag-bar-fill {
+    height: 100%;
+    background: #000;
+    border-radius: 1px;
+  }
+
+  /* ── Footer strip ── */
+  .ag-footer {
+    display: flex;
+    align-items: stretch;
+    border-top: 2px solid #000;
+    flex-shrink: 0;
+    height: 48px;
+  }
+  .ag-footer-cell {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4px 12px;
+    border-right: 1px solid #ccc;
+  }
+  .ag-footer-cell:last-child { border-right: none; }
+  .ag-footer-cell .f-label {
+    font-size: 7px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    opacity: .5;
+  }
+  .ag-footer-cell .f-value {
+    font-size: 16px;
+    font-weight: bold;
+    line-height: 1.2;
+  }
+  .ag-footer-cell .f-unit {
+    font-size: 8px;
+    opacity: .4;
+  }
+</style>
+
+<div class="ag-wrap">
+
+  <!-- ── AQI Hero ── -->
+  <div class="ag-hero">
+    <div class="ag-hero-aqi">
+      <div class="eyebrow">US AQI · PM2.5</div>
+      <div class="big-num">{{ aqi_val }}</div>
+    </div>
+    <div class="ag-cat-badge">{{ aqi_cat }}</div>
+    <div class="ag-hero-spacer"></div>
+    <div class="ag-hero-pm">
+      <div class="pm-item">PM2.5 &nbsp;<strong>{{ reading.pm02 | round: 1 }} µg/m³</strong></div>
+      <div class="pm-item">PM10 &nbsp;<strong>{{ reading.pm10 | round: 1 }} µg/m³</strong></div>
+      <div class="pm-item">PM1 &nbsp;<strong>{{ reading.pm01 | round: 1 }} µg/m³</strong></div>
+    </div>
+  </div>
+
+  <!-- ── 4×2 Metric Grid ── -->
+  <div class="ag-grid">
+
+    <!-- CO2 -->
+    <div class="ag-cell">
+      <div class="ag-cell-label">CO₂</div>
+      <div class="ag-cell-value">{{ co2 }}</div>
+      <div class="ag-cell-unit">ppm</div>
+      {% assign co2_pct = co2 | times: 100 | divided_by: 2000 %}
+      <div class="ag-bar"><div class="ag-bar-fill" style="width:{{ co2_pct }}%"></div></div>
+      <span class="ag-cell-status{% if co2_status == "BAD" %} bad{% elsif co2_status == "POOR" %} poor{% endif %}">{{ co2_status }}</span>
+    </div>
+
+    <!-- Temperature -->
+    <div class="ag-cell">
+      <div class="ag-cell-label">Temperature</div>
+      <div class="ag-cell-value">{{ temp_val }}</div>
+      <div class="ag-cell-unit">{{ temp_unit }}</div>
+      {% if temp_unit == "°F" %}
+        {% assign temp_pct = temp_val | minus: 14 | times: 100 | divided_by: 112 %}
+      {% else %}
+        {% assign temp_pct = temp_val | plus: 10 | times: 100 | divided_by: 60 %}
+      {% endif %}
+      <div class="ag-bar"><div class="ag-bar-fill" style="width:{{ temp_pct }}%"></div></div>
+    </div>
+
+    <!-- Humidity -->
+    <div class="ag-cell">
+      <div class="ag-cell-label">Humidity</div>
+      <div class="ag-cell-value">{{ rh }}</div>
+      <div class="ag-cell-unit">% RH</div>
+      <div class="ag-bar"><div class="ag-bar-fill" style="width:{{ rh }}%"></div></div>
+      <span class="ag-cell-status{% if rh_status == "POOR" %} poor{% endif %}">{{ rh_status }}</span>
+    </div>
+
+    <!-- TVOC Index -->
+    <div class="ag-cell">
+      <div class="ag-cell-label">TVOC Index</div>
+      <div class="ag-cell-value">{{ tvoc_idx }}</div>
+      <div class="ag-cell-unit">/ 500</div>
+      {% assign tvoc_pct = tvoc_idx | times: 100 | divided_by: 500 %}
+      <div class="ag-bar"><div class="ag-bar-fill" style="width:{{ tvoc_pct }}%"></div></div>
+      <span class="ag-cell-status{% if tvoc_status == "POOR" %} poor{% endif %}">{{ tvoc_status }}</span>
+    </div>
+
+    <!-- NOx Index -->
+    <div class="ag-cell">
+      <div class="ag-cell-label">NOx Index</div>
+      <div class="ag-cell-value">{{ nox_idx }}</div>
+      <div class="ag-cell-unit">/ 500</div>
+      {% assign nox_pct = nox_idx | times: 100 | divided_by: 500 %}
+      <div class="ag-bar"><div class="ag-bar-fill" style="width:{{ nox_pct }}%"></div></div>
+      <span class="ag-cell-status{% if nox_status == "POOR" %} poor{% endif %}">{{ nox_status }}</span>
+    </div>
+
+    <!-- TVOC ppb -->
+    <div class="ag-cell">
+      <div class="ag-cell-label">TVOC</div>
+      <div class="ag-cell-value">{{ reading.tvoc | round }}</div>
+      <div class="ag-cell-unit">ppb</div>
+      {% assign tvoc_ppb_pct = reading.tvoc | times: 100 | divided_by: 1000 %}
+      <div class="ag-bar"><div class="ag-bar-fill" style="width:{{ tvoc_ppb_pct }}%"></div></div>
+    </div>
+
+    <!-- PM 0.3µm Count -->
+    <div class="ag-cell">
+      <div class="ag-cell-label">PM 0.3µm Count</div>
+      <div class="ag-cell-value" style="font-size:22px">{{ reading.pm003Count }}</div>
+      <div class="ag-cell-unit">particles/cm³</div>
+      {% assign pm003_pct = reading.pm003Count | times: 100 | divided_by: 5000 %}
+      <div class="ag-bar"><div class="ag-bar-fill" style="width:{{ pm003_pct }}%"></div></div>
+    </div>
+
+    <!-- WiFi -->
+    <div class="ag-cell">
+      <div class="ag-cell-label">WiFi Signal</div>
+      <div class="ag-cell-value" style="font-size:28px">{{ reading.wifi }}</div>
+      <div class="ag-cell-unit">dBm</div>
+      {% assign wifi_pct = reading.wifi | plus: 100 | times: 100 | divided_by: 70 %}
+      <div class="ag-bar"><div class="ag-bar-fill" style="width:{{ wifi_pct }}%"></div></div>
+    </div>
+
+  </div><!-- /ag-grid -->
+
+  <!-- ── Footer strip ── -->
+  <div class="ag-footer">
+    <div class="ag-footer-cell">
+      <div class="f-label">Location</div>
+      <div class="f-value" style="font-size:13px">{{ loc_label }}</div>
+    </div>
+    <div class="ag-footer-cell">
+      <div class="f-label">Sensor</div>
+      <div class="f-value" style="font-size:11px; word-break:break-all">{{ reading.serialno | default: reading.locationId }}</div>
+    </div>
+    <div class="ag-footer-cell">
+      <div class="f-label">Updated</div>
+      <div class="f-value" style="font-size:11px">
+        {{ reading.timestamp | date: "%d %b %H:%M" }}
+      </div>
+    </div>
+    <div class="ag-footer-cell">
+      <div class="f-label">Refreshes every</div>
+      <div class="f-value">15 <span class="f-unit">min</span></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="title_bar">
+  <img class="title_bar_icon" src="https://usetrmnl.com/images/icons/wifi.svg" />
+  <span class="title">{{ loc_label }} · Air Quality</span>
+  <span class="instance">AirGradient</span>
+</div>

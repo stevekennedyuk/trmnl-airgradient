@@ -1,0 +1,61 @@
+{% comment %} AirGradient – Quadrant (compact) {% endcomment %}
+{% assign reading = data[0] %}
+
+{% assign pm25 = reading.pm02 | plus: 0 %}
+{% if pm25 <= 12.0 %}{% assign aqi_cat = "GOOD" %}{% assign aqi_lo = 0 %}{% assign aqi_hi = 50 %}{% assign pm_lo = 0.0 %}{% assign pm_hi = 12.0 %}
+{% elsif pm25 <= 35.4 %}{% assign aqi_cat = "MOD." %}{% assign aqi_lo = 51 %}{% assign aqi_hi = 100 %}{% assign pm_lo = 12.1 %}{% assign pm_hi = 35.4 %}
+{% else %}{% assign aqi_cat = "POOR" %}{% assign aqi_lo = 101 %}{% assign aqi_hi = 150 %}{% assign pm_lo = 35.5 %}{% assign pm_hi = 55.4 %}{% endif %}
+{% assign aqi_val = pm25 | minus: pm_lo | times: aqi_hi | minus: aqi_lo | divided_by: pm_hi | minus: pm_lo | plus: aqi_lo | round %}
+
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  .q{width:100%;height:100%;display:flex;flex-direction:column;font-family:"Courier New",monospace;background:#fff;color:#000}
+  .q-top{background:#000;color:#fff;padding:6px 10px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .q-top .num{font-size:34px;font-weight:bold;line-height:1}
+  .q-top .info{font-size:8px;letter-spacing:1px;text-transform:uppercase}
+  .q-top .cat{border:1px solid #fff;padding:1px 5px;margin-top:3px;display:inline-block;font-size:8px;font-weight:bold;letter-spacing:.5px}
+  .q-grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  .q-cell{padding:5px 8px;border-right:1px solid #ccc;border-bottom:1px solid #ccc;display:flex;flex-direction:column;justify-content:center}
+  .q-cell:nth-child(2n){border-right:none}
+  .q-cell:nth-child(n+3){border-bottom:none}
+  .lbl{font-size:7px;letter-spacing:1px;text-transform:uppercase;opacity:.5}
+  .val{font-size:22px;font-weight:bold;line-height:1.1}
+  .unt{font-size:7px;opacity:.4}
+</style>
+
+<div class="q">
+  <div class="q-top">
+    <div class="num">{{ aqi_val }}</div>
+    <div class="info">
+      <div>US AQI</div>
+      <div class="cat">{{ aqi_cat }}</div>
+    </div>
+  </div>
+  <div class="q-grid">
+    <div class="q-cell">
+      <div class="lbl">PM2.5</div>
+      <div class="val">{{ reading.pm02 | round: 1 }}</div>
+      <div class="unt">µg/m³</div>
+    </div>
+    <div class="q-cell">
+      <div class="lbl">CO₂</div>
+      <div class="val">{{ reading.rco2 | round }}</div>
+      <div class="unt">ppm</div>
+    </div>
+    <div class="q-cell">
+      <div class="lbl">Temp</div>
+      <div class="val">{{ reading.atmp | round: 1 }}</div>
+      <div class="unt">°C</div>
+    </div>
+    <div class="q-cell">
+      <div class="lbl">RH</div>
+      <div class="val">{{ reading.rhum | round }}</div>
+      <div class="unt">%</div>
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Air Quality</span>
+  <span class="instance">AirGradient</span>
+</div>

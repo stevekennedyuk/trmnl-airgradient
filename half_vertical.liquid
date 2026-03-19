@@ -1,0 +1,73 @@
+{% comment %} AirGradient – Half Vertical (top panel) {% endcomment %}
+{% assign reading = data[0] %}
+
+{% assign pm25 = reading.pm02 | plus: 0 %}
+{% if pm25 <= 12.0 %}{% assign aqi_cat = "GOOD" %}{% assign aqi_lo = 0 %}{% assign aqi_hi = 50 %}{% assign pm_lo = 0.0 %}{% assign pm_hi = 12.0 %}
+{% elsif pm25 <= 35.4 %}{% assign aqi_cat = "MODERATE" %}{% assign aqi_lo = 51 %}{% assign aqi_hi = 100 %}{% assign pm_lo = 12.1 %}{% assign pm_hi = 35.4 %}
+{% else %}{% assign aqi_cat = "UNHEALTHY" %}{% assign aqi_lo = 101 %}{% assign aqi_hi = 150 %}{% assign pm_lo = 35.5 %}{% assign pm_hi = 55.4 %}{% endif %}
+{% assign aqi_val = pm25 | minus: pm_lo | times: aqi_hi | minus: aqi_lo | divided_by: pm_hi | minus: pm_lo | plus: aqi_lo | round %}
+
+{% assign loc_label = trmnl.plugin_settings.custom_fields_values.location_name | default: "Air Quality" %}
+
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  .hv{width:100%;height:100%;display:flex;flex-direction:row;font-family:"Courier New",monospace;background:#fff;color:#000}
+  .hv-left{background:#000;color:#fff;padding:10px 12px;display:flex;flex-direction:column;justify-content:center;width:100px;flex-shrink:0}
+  .hv-left .aqi-num{font-size:40px;font-weight:bold;line-height:1}
+  .hv-left .aqi-lbl{font-size:7px;letter-spacing:1.5px;opacity:.65;text-transform:uppercase;margin-bottom:4px}
+  .hv-left .aqi-cat{font-size:8px;font-weight:bold;letter-spacing:.5px;border:1px solid #fff;padding:2px 4px;text-transform:uppercase;display:inline-block;margin-top:4px}
+  .hv-right{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,1fr)}
+  .hv-cell{padding:6px 8px;border-left:1px solid #ccc;border-bottom:1px solid #ccc;display:flex;flex-direction:column;justify-content:space-between}
+  .hv-cell:nth-child(2n){border-left:none;border-right:none}
+  .hv-cell:nth-last-child(-n+2){border-bottom:none}
+  .lbl{font-size:7px;letter-spacing:1px;text-transform:uppercase;opacity:.5}
+  .val{font-size:22px;font-weight:bold;line-height:1}
+  .unt{font-size:7px;opacity:.4}
+  .bar{width:100%;height:2px;background:#eee;margin-top:2px;border-radius:1px;overflow:hidden}
+  .bar-f{height:100%;background:#000;border-radius:1px}
+</style>
+
+<div class="hv">
+  <div class="hv-left">
+    <div class="aqi-lbl">US AQI</div>
+    <div class="aqi-num">{{ aqi_val }}</div>
+    <div class="aqi-cat">{{ aqi_cat }}</div>
+  </div>
+  <div class="hv-right">
+    <div class="hv-cell">
+      <div class="lbl">PM2.5</div>
+      <div class="val">{{ reading.pm02 | round: 1 }}</div>
+      <div class="unt">µg/m³</div>
+    </div>
+    <div class="hv-cell">
+      <div class="lbl">CO₂</div>
+      <div class="val">{{ reading.rco2 | round }}</div>
+      <div class="unt">ppm</div>
+    </div>
+    <div class="hv-cell">
+      <div class="lbl">Temp</div>
+      <div class="val">{{ reading.atmp | round: 1 }}</div>
+      <div class="unt">°C</div>
+    </div>
+    <div class="hv-cell">
+      <div class="lbl">Humidity</div>
+      <div class="val">{{ reading.rhum | round }}</div>
+      <div class="unt">%RH</div>
+    </div>
+    <div class="hv-cell">
+      <div class="lbl">TVOC</div>
+      <div class="val">{{ reading.tvocIndex | round }}</div>
+      <div class="unt">index</div>
+    </div>
+    <div class="hv-cell">
+      <div class="lbl">NOx</div>
+      <div class="val">{{ reading.noxIndex | round }}</div>
+      <div class="unt">index</div>
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">{{ loc_label }}</span>
+  <span class="instance">AirGradient</span>
+</div>

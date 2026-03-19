@@ -1,0 +1,33 @@
+---
+name: AirGradient Air Quality
+strategy: polling
+refresh_interval: 15  # minutes
+
+polling_url: "https://api.airgradient.com/public/api/v1/locations/measures/current?token={{API_key}}"
+polling_verb: GET
+polling_headers: ""
+
+no_screen_padding: "yes"
+dark_mode: "no"
+
+custom_fields:
+  - keyname: API_key
+    field_type: string
+    name: AirGradient API Key
+    description: "Find this in your AirGradient dashboard under Settings → Connectivity → API Access"
+    placeholder: "0b543xx1-77xx-xxxx-xxxx-xxxxxxxxx"
+
+  - keyname: location_name
+    field_type: string
+    name: Location Label
+    description: "Label shown on the display, e.g. Living Room or Office"
+    placeholder: "Home"
+    default: "Home"
+
+  - keyname: temp_unit
+    field_type: select
+    name: Temperature Unit
+    options:
+      - "°C"
+      - "°F"
+    default: "°C"
